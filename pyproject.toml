@@ -1,0 +1,15 @@
+[tool.ruff]
+select = [
+    "E",
+    "F",
+    "I",
+    "NPY201", # np.{existing} will be removed in NumPy 2.0. {migration_guide}
+    "W605", # Invalid escape sequence
+]
+ignore = [
+    "E711", # Comparison to None should be cond is None
+    "E712", # Avoid equality comparisons to True; use if {cond}: for truth checks
+    "F821", # Undefined name {name}. {tip}
+    "F841", # Local variable {name} is assigned to but never used
+]
+line-length = 100
