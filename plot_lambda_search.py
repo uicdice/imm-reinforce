@@ -9,6 +9,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--csv_dir', default='csv_cached')
 args = parser.parse_args()
 
+plt.rcParams.update({
+    "text.usetex": True if shutil.which('latex') else False,
+    "font.size": 14
+})
+
 def trendFromCSVs(pathtemplate, uniques):
     trend_x = []
     trend_mean = []
@@ -50,12 +55,9 @@ epochs400_x, epochs400_mean, epochs400_low, epochs400_high = trendFromCSVs(
 green = plt.plot(epochs400_x, epochs400_mean, '-o', c="seagreen", label='400 Epochs')
 plt.errorbar(epochs400_x, epochs400_mean, yerr=[epochs400_low, epochs400_high], capsize=7, fmt="o", c="seagreen")
 
-plt.title("Average reward with varying lambda ratios.")
+plt.title(r"Average reward with varying $\frac{\lambda}{1+\lambda}$")
 plt.legend(loc='lower right')
-if shutil.which('latex'):
-    plt.xlabel(r'$\frac{\lambda}{1+\lambda}$')
-else:
-    plt.xlabel("Lambda Ratio")
+plt.xlabel(r'$\frac{\lambda}{1+\lambda}$')
 plt.ylabel("Average Reward")
 
 

@@ -16,13 +16,33 @@ This repository serves a simple example where POMDP policies can be used to impr
 
 Other repositories: [IMM in Logistic Regression](https://github.com/uicdice/imm-logistic-regression) | [IMM in Language Modeling](https://github.com/uicdice/imm-language-modeling)
 
-We first define the MDP 5-tuple $$\langle \mathcal{S}, \mathcal{A}, T, R, \gamma \rangle$$. We consider a simple 11x11 grid with a mountain shaped reward landscape, having a peak in the center. In each of the 121 possible states (i.e. coordinates), the agent may take act to move in one of four possible directions (the grid is a toroid and wraps around). The agent has to learn to navigate a simple grid like environment where the reward distribution is shaped like a mountain (with a peak in the center). We assume a continuing task and the agent's goal is to not just reach the peak but also stay there. We employ a non-zero discount factor $\gamma$.
+> [!NOTE]
+> **The MDP**  We first define the MDP 5-tuple $$\langle \mathcal{S}, \mathcal{A}, T, R, \gamma \rangle$$. We consider a simple 11x11 grid with a mountain shaped reward landscape, having a peak in the center. In each of the 121 possible states (i.e. coordinates), the agent may take act to move in one of four possible directions (the grid is a toroid and wraps around). The agent has to learn to navigate a simple grid like environment where the reward distribution is shaped like a mountain (with a peak in the center). We assume a continuing task and the agent's goal is to not just reach the peak but also stay there. We employ a non-zero discount factor $\gamma$.
+> 
+> **The POMDP** The POMDP requires definition of the observation space and function ($$\mathcal{O}$$ and $$O$$) in addition to the MDP 5-tuple. For this proof of concept, we assume a degenerate observation model, i.e., if an agent is at coordinate $x=7,y=3$, we can only observe $x$ coordinate to be 7 (and not any other value). The $y$ coordinate is not observable and we maintain a uniform belief over the 11 possible values.
 
-The POMDP requires definition of the observation space and function ($$\mathcal{O}$$ and $$O$$) in addition to the MDP 5-tuple. For this proof of concept, we assume a degenerate observation model, i.e., if an agent is at coordinate $x=7,y=3$, we can only observe $x$ coordinate to be 7 (and not any other value). The $y$ coordinate is not observable and we maintain a uniform belief over the 11 possible values.
+### Quick Start
+
+The `main.py` (if run with all the default options), will train a policy without any restricted model information for 200 epochs. It will then evaluate the policy using 10 rollouts. In order to replicate each of the reported curves in the paper, there are options provided in this file that can be set accordingly. We derive `main.py` from the *reward-to-go* formulation (`2_rtg_pg.py` file) from OpenAI Spinning Up documentation and add the IMM component. The file is MIT licensed and a copy has been included in the `openai` folder for reference.
+
+Since the plots require 30 Monte Carlo training runs for each configuration, and running them sequentially is time consuming, we have provided a `run_all.sh` BASH script that will parallelize these 30 runs using multiprocessing. Note that **$$\alpha$$-vectors need to be generated before calling `run_all.sh`** (details in next section).
+
+Alternatively, if you simply want to generate plots from cached files, you can skip directly to the [plotting](#plotting-generated-csvs) section below (cached CSV files for 300 runs have also been provided in this repository).
+
+> [!IMPORTANT]
+> **Secondary Objective Coefficient** One of `--lambda_ratio` or `--lambda_param` parameters can be used to set the coefficient for the secondary objective (i.e. IMM or noising). While `--lambda_param` will set $$\lambda$$ directly, `--lambda_ratio` will set $$\frac{\lambda}{1+\lambda}$$ (from which `train_and_test.py` will determine $$\lambda$$). Controlling $$\frac{\lambda}{1+\lambda}$$ is more intuitive, since it is the contribution of the secondary objective's coefficient as a fraction of both main as well as secondary objective coefficients.
+> 
+> **Overall Objective** The overall objective function minimized is *policy gradient objective* + $$\lambda$$ *IMM using POMDP policy objective*. Unlike [logistic regression](https://github.com/uicdice/imm-logistic-regression) experiments, we **do not** normalize our learning rate by $$1+\lambda$$ in the code, however, we would like to point out that we use Adam Optimizer in these experiments (unlike SGD in logistic regression experiments).
 
 ### Generating an accurate POMDP solution
 
-We use the POMDPs.jl package in combination with the Fast Informed Bound (FIB.jl) POMDP solver to accomplish this. Please first install Julia and then the required packages by running:
+We have also provided a cached version of $$\alpha$$-vectors in this repository. You may choose to skip this step and use the cached version, however, **make sure to rename them so the training script can find them**:
+
+```bash
+mv alphas_cached.h5 alphas.h5
+```
+
+If you want to generate $$\alpha$$-vectors by solving the POMDP, we will use the POMDPs.jl package in combination with the Fast Informed Bound (FIB.jl) POMDP solver to accomplish this. Please first install Julia and then the required packages by running:
 
 ```bash
 julia install_packages.jl
@@ -36,52 +56,40 @@ julia simplegrid_pomdp.jl
 
 ### IMM aided training
 
-We recommend running this in a CPU only PyTorch environment (if GPU version is used, CUDA will need to be initialized repeatedly, eventually slowing things down). The following additional packages will be required:
+We recommend running this in a CPU only PyTorch environment (if GPU version is used, CUDA will need to be initialized repeatedly, eventually slowing things down). To this end, the official PyTorch Docker container (`pytorch/pytorch`) is recommended. Also, the following additional packages will be required:
 
 ```bash
 pip install gymnasium h5py
 ```
 
-We derive from the reward-to-go formulation (`2_rtg_pg.py` file) from OpenAI Spinning Up documentation and add the IMM component. The file is MIT licensed and a copy has been included in the `openai` folder for reference.
-
-#### Determining optimal $$\lambda$$ for a dataset size
-
-Just as we did for the logistic regression experiments, we determine an optimal $$\lambda$$ schedule via cross validation. These schedules have already been incorporated into `main.py` and you may skip this, but is being included for completeness. During cross validation, we directly control not $$\lambda$$ but rather the ratio $$\frac{\lambda}{1+\lambda}$$ which is the contribution of the IMM coefficient as a fraction of both IMM and main objective coefficients.
-
-This should be done separately for each configuration on the main plot (we have three configurations, one using argmax or maximal utility based POMDP policy and two using softmax based policies). For example, the following snippet will generate the results needed to tune the $$\lambda$$ schedule for the configuration performing IMM done against the target POMDP policy that uses maximal utility action (which is the default configuration).
+To maximally utilize multiprocessing, you are encouraged to edit `PARALLEL_JOBS` inside `run_all.sh`, as per the provided instructions before calling it as:
 
 ```bash
-export dss=(50 200 400)
-export lambda_ratios=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
-for ds in ${dss[@]}; do
-    for lambda_ratio in ${lambda_ratios[@]}; do
-        for seed in {1..30}; do
-            python main.py --epochs $ds --batch_size 50 --gamma 0.9 --seed $seed --lambda_ratio $lambda_ratio --output_dir csv/lambda_search
-        done
-    done
-done
+./run_all.sh
 ```
 
-The results can be visualized by running `python plot_lambda_tuning.py`. By default, it will read cached CSVs from the `csv_cached` directory. Another source can be specified through an additional argument, i.e. `python plot_lambda_tuning.py --csv_dir csv`.
+### Plotting Generated CSVs
+
+The results can be visualized by running `python plot_main.py`. 
+
+By default, the cached CSVs in `csv_cached` directory will be used. This can be overridden by adding an extra `--csv_dir csv` flag.
+
+### Obtaining schedules for $$\lambda$$
+
+For completeness, we will also demonstrate how we obtain the plots in the paper that we use to create the hardcoded rules that give us $$\lambda$$ from the dataset size. Directly, the relationship with the dataset size is not that of $$\lambda$$ but that of $$\frac{\lambda}{1+\lambda}$$.
+
+```bash
+./schedulers/tune_lambda.sh
+```
+
+To visualize the generated CSVs
+
+```bash
+python plot_lambda_search.py
+```
+
+Again, by default, the cached CSVs in `csv_cached/lambda_search` directory will be used. This can be overridden by adding an extra `--csv_dir csv/lambda_search` flag.
 
 We experimentally determined the same rule to also apply in the case of softmaxed POMDP policies (i.e. with additional `--pomdp_temp 0.5` or `--pomdp_temp 1.0` argument). The rule has been integrated into `main.py` and will be applied if we specify ` --lambda_ratio -1` to automatically set the $$\lambda$$ parameter.
 
-#### Performance with IMM using different restricted targets
 
-All three curves shown on our main plot can be generated using this BASH snippet. Precisely, we show a curve with no IMM component, and three curves with IMM aided training against models of different qualities.
-
-For each, we will use the $$\lambda$$ rule determined in the previous step, which precisely is $$\frac{\lambda}{1+\lambda} = 0.0002 n + 0.1891$$ where $$n$$ is the dataset size (analogous to number of epochs in this experiment).
-
-```bash
-export dss=(10 20 50 75 100 125 150 175 200 250 300 350 400 450 500)
-for ds in ${dss[@]}; do
-    for seed in {1..30}; do
-        python main.py --epochs $ds --batch_size 50 --gamma 0.9 --seed $seed --lambda_ratio 0.0 --output_dir csv/none
-        python main.py --epochs $ds --batch_size 50 --gamma 0.9 --seed $seed --lambda_ratio -1 --pomdp_temp 1.0 --output_dir csv/imm_pomdp_softmax_temp_1.0
-        python main.py --epochs $ds --batch_size 50 --gamma 0.9 --seed $seed --lambda_ratio -1 --pomdp_temp 0.5 --output_dir csv/imm_pomdp_softmax_temp_0.5
-        python main.py --epochs $ds --batch_size 50 --gamma 0.9 --seed $seed --lambda_ratio -1 --output_dir csv/imm_pomdp_max_utility_action
-    done
-done
-```
-
-The results can be visualized by running `python plot_main.py`. Again, by default it will read cached CSVs from the `csv_cached` directory. Another source can be specified through an additional argument, i.e. `python plot_lambda_tuning.py --csv_dir csv`.
