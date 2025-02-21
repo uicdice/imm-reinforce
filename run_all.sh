@@ -16,6 +16,13 @@ TOTAL_RUNS=30
 # and if we have 32 CPUs, we will set it to 30
 PARALLEL_JOBS=30
 
+if [ ! -f "alphas.h5" ]; then
+    echo "alphas.h5 not found. Please generate the alpha vectors by solving \
+the POMDP or rename the cached alphas_cached.h5 file to alphas.h5. See the \
+README.md file for details." >&2
+    exit 1
+fi
+
 echo "Scheduling baseline runs"
 source schedulers/run_baseline.sh
 
