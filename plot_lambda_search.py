@@ -33,32 +33,30 @@ def trendFromCSVs(pathtemplate, uniques):
 Plot without lambda normalization.
 """
 
-# Draw the 50 epochs trendline against varying lamdba_ratios
-epochs50_x, epochs50_mean, epochs50_low, epochs50_high = trendFromCSVs(
-    args.csv_dir + "/lambda_search/epochs=50,lambda_ratio={}.csv",
-    np.linspace(0,0.9,10)
-)
-red = plt.plot(epochs50_x, epochs50_mean, '-o', c="darkred", label='50 Epochs')
-plt.errorbar(epochs50_x, epochs50_mean, yerr=[epochs50_low, epochs50_high], capsize=7, fmt="o", c="darkred")
+for ds in [50, 200, 400]:
+    baseline_x, baseline_mean, baseline_low, baseline_high = trendFromCSVs(
+        args.csv_dir + "/lambda_search/epochs=" + str(ds) + ",lambda_ratio=0.0.csv",
+        np.linspace(0,0.9,10)
+    )
 
-epochs200_x, epochs200_mean, epochs200_low, epochs200_high = trendFromCSVs(
-    args.csv_dir + "/lambda_search/epochs=200,lambda_ratio={}.csv",
-    np.linspace(0,0.9,10)
-)
-blue = plt.plot(epochs200_x, epochs200_mean, '-o', c="darkblue", label='200 Epochs')
-plt.errorbar(epochs200_x, epochs200_mean, yerr=[epochs200_low, epochs200_high], capsize=7, fmt="o", c="darkblue")
+    imm_x, imm_mean, imm_low, imm_high = trendFromCSVs(
+        args.csv_dir + "/lambda_search/epochs=" + str(ds) + ",lambda_ratio={}.csv",
+        np.linspace(0,0.9,10)
+    )
+    plt.figure()
 
-epochs400_x, epochs400_mean, epochs400_low, epochs400_high = trendFromCSVs(
-    args.csv_dir + "/lambda_search/epochs=400,lambda_ratio={}.csv",
-    np.linspace(0,0.9,10)
-)
-green = plt.plot(epochs400_x, epochs400_mean, '-o', c="seagreen", label='400 Epochs')
-plt.errorbar(epochs400_x, epochs400_mean, yerr=[epochs400_low, epochs400_high], capsize=7, fmt="o", c="seagreen")
+    red = plt.plot(baseline_x, baseline_mean, '-o', c="darkred", label=f'no IMM')
+    plt.errorbar(baseline_x, baseline_mean, yerr=[baseline_low, baseline_high], capsize=7, fmt="o", c="darkred")
 
-plt.title(r"Average reward with varying $\frac{\lambda}{1+\lambda}$")
-plt.legend(loc='lower right')
-plt.xlabel(r'$\frac{\lambda}{1+\lambda}$')
-plt.ylabel("Average Reward")
+    green = plt.plot(imm_x, imm_mean, '-o', c="seagreen", label=f'IMM against maximal utility action')
+    plt.errorbar(imm_x, imm_mean, yerr=[imm_low, imm_high], capsize=7, fmt="o", c="seagreen")
+
+    plt.title(f"Average reward after training for {ds} epochs")
+    plt.legend(loc='lower right')
+    plt.xlabel(r'$\frac{\lambda}{1+\lambda}$')
+    plt.ylabel("Average Reward")
+    plt.tight_layout()
+    plt.savefig(f"ds={ds}.pdf", bbox_inches='tight')
 
 
-plt.show()
+# plt.show()
